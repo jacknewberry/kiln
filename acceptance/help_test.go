@@ -16,8 +16,9 @@ Usage: kiln [options] <command> [<args>]
   --help, -h  bool  prints this usage information (default: false)
 
 Commands:
-  bake  bakes a tile
-  help  prints this usage information
+  bake   bakes a tile
+  fetch  fetches releases
+  help   prints this usage information
 `
 
 const BAKE_USAGE = `kiln bake

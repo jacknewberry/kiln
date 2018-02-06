@@ -72,6 +72,7 @@ func main() {
 		templateVariablesParser,
 		releasesService,
 	)
+	commandSet["fetch"] = commands.NewFetch()
 
 	var command string
 	if len(args) > 0 {
