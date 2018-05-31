@@ -1,11 +1,13 @@
 package builder
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
+	"text/template"
 
 	pathpkg "path"
 
@@ -60,15 +62,19 @@ func (r MetadataPartsDirectoryReader) readMetadataRecursivelyFromDir(path string
 			return nil
 		}
 
-		data, err := ioutil.ReadFile(filePath)
+		rawFileContents, err := ioutil.ReadFile(filePath)
 		if err != nil {
 			return err
+		}
+		preprocessedContent, err := r.preprocess(rawFileContents)
+		if err != nil {
+			panic(err)
 		}
 
 		var vars interface{}
 		if r.topLevelKey != "" {
 			var fileVars map[string]interface{}
-			err = yaml.Unmarshal([]byte(data), &fileVars)
+			err = yaml.Unmarshal(preprocessedContent, &fileVars)
 			if err != nil {
 				return fmt.Errorf("cannot unmarshal '%s': %s", filePath, err)
 			}
@@ -79,7 +85,7 @@ func (r MetadataPartsDirectoryReader) readMetadataRecursivelyFromDir(path string
 				return fmt.Errorf("not a %s file: %q", r.topLevelKey, filePath)
 			}
 		} else {
-			err = yaml.Unmarshal([]byte(data), &vars)
+			err = yaml.Unmarshal(preprocessedContent, &vars)
 			if err != nil {
 				return fmt.Errorf("cannot unmarshal '%s': %s", filePath, err)
 			}
@@ -196,4 +202,24 @@ func (r MetadataPartsDirectoryReader) orderAlphabeticallyByName(path string, par
 	}
 
 	return outputs, nil
+}
+
+func (r MetadataPartsDirectoryReader) preprocess(input []byte) ([]byte, error) {
+	t, err := template.New("metadata").
+		Delims("# $(", ")").
+		Funcs(template.FuncMap{
+			"env_equals": func(key string, value string) (bool, error) {
+				return os.Getenv(key) == value, nil
+			},
+		}).
+		Parse(string(input))
+	if err != nil {
+		panic(err)
+	}
+	var buffer bytes.Buffer
+	err = t.Execute(&buffer, nil)
+	if err != nil {
+		panic(err)
+	}
+	return buffer.Bytes(), nil
 }
